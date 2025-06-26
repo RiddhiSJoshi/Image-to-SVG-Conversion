@@ -1,19 +1,18 @@
 # main.py
 from fastapi import FastAPI
-from starlette.graphql import GraphQLApp
+from strawberry.fastapi import GraphQLRouter
 from schema import schema
-from starlette.middleware.cors import CORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-# Optional: enable frontend access
+graphql_app = GraphQLRouter(schema)
+app.include_router(graphql_app, prefix="/graphql")
+
+# Allow frontend tools (Altair, React apps) to access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Change to frontend URL in prod
-    allow_credentials=True,
+    allow_origins=["*"],
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"]
 )
-
-# Mount GraphQL API at /graphql
-app.add_route("/graphql", GraphQLApp(schema=schema))

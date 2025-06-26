@@ -1,39 +1,27 @@
 # schema.py
-
-import graphene
-from graphene_file_upload.scalars import Upload
+import strawberry
+from typing import Optional
+from fastapi import UploadFile
 from model_utils import image_to_svg
 
-# Memory-based SVG storage (for example only)
-latest_svg_result = None
+latest_svg: Optional[str] = None
 
-class UploadImage(graphene.Mutation):
-    class Arguments:
-        file = Upload(required=True)
-
-    ok = graphene.Boolean()
-    svg = graphene.String()
-
-    def mutate(self, info, file):
-        global latest_svg_result
-
+@strawberry.type
+class Mutation:
+    @strawberry.mutation
+    async def upload_image(self, file: UploadFile) -> str:
+        global latest_svg
         if file.content_type not in ["image/jpeg", "image/png"]:
-            raise Exception("Only JPEG and PNG files are supported.")
+            raise ValueError("Only JPEG and PNG are supported.")
 
-        try:
-            svg = image_to_svg(file.read())
-            latest_svg_result = svg
-            return UploadImage(ok=True, svg=svg)
-        except Exception as e:
-            raise Exception(f"Image processing failed: {e}")
+        svg = image_to_svg(await file.read())
+        latest_svg = svg
+        return svg
 
-class Query(graphene.ObjectType):
-    latest_svg = graphene.String(description="Get the latest converted SVG")
+@strawberry.type
+class Query:
+    @strawberry.field
+    def latest_svg(self) -> Optional[str]:
+        return latest_svg
 
-    def resolve_latest_svg(self, info):
-        return latest_svg_result or ""
-
-class Mutation(graphene.ObjectType):
-    upload_image = UploadImage.Field()
-
-schema = graphene.Schema(query=Query, mutation=Mutation)
+schema = strawberry.Schema(query=Query, mutation=Mutation)
