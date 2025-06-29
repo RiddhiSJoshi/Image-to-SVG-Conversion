@@ -7,16 +7,20 @@ from model_utils import image_to_svg
 latest_svg: Optional[str] = None
 
 @strawberry.type
+class ConvertImagePayload:
+    svg: str
+
+@strawberry.type
 class Mutation:
     @strawberry.mutation
-    async def upload_image(self, file: UploadFile) -> str:
+    async def convert_image_to_svg(self, file: UploadFile) -> ConvertImagePayload:
         global latest_svg
         if file.content_type not in ["image/jpeg", "image/png"]:
             raise ValueError("Only JPEG and PNG are supported.")
 
         svg = image_to_svg(await file.read())
         latest_svg = svg
-        return svg
+        return ConvertImagePayload(svg=svg)
 
 @strawberry.type
 class Query:

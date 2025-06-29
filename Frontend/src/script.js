@@ -17,7 +17,7 @@ uploadInput.addEventListener('change', async (event) => {
   svgContainer.innerHTML = '';
 
   // Simulate conversion delay
-  await sleep(2000);
+  // await sleep(2000);
 
   for (const file of files) {
     const svgString = await convertImageToSvg(file);
@@ -27,18 +27,59 @@ uploadInput.addEventListener('change', async (event) => {
   statusEl.textContent = 'Conversion complete!';
 });
 
-// Dummy conversion function
-function convertImageToSvg(file) {
-  return new Promise((resolve) => {
-    const fakeSvg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
-        <rect width="200" height="200" fill="#${randomHexColor()}"/>
-        <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="20" fill="#fff">${file.name}</text>
-      </svg>
-    `;
-    resolve(fakeSvg.trim());
+async function convertImageToSvg(file) {
+  const query = `
+    mutation ConvertImage($file: Upload!) {
+      convertImageToSvg(file: $file) {
+        svg
+      }
+    }
+  `;
+
+  const operations = JSON.stringify({
+    query,
+    variables: {
+      file: null // placeholder for file
+    }
   });
+
+  const map = JSON.stringify({
+    "0": ["variables.file"]
+  });
+
+  const formData = new FormData();
+  formData.append("operations", operations);
+  formData.append("map", map);
+  formData.append("0", file, file.name);
+
+  try {
+    const response = await fetch("/graphql", {
+      method: "POST",
+      body: formData
+    });
+
+    const result = await response.json();
+
+    console.log("GraphQL response:", result);
+
+    const svg = result?.data?.convertImageToSvg?.svg;
+
+    if (!svg) {
+      throw new Error("No SVG returned from server.");
+    }
+
+    return svg;
+  } catch (err) {
+    console.error(err);
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
+      <rect width="200" height="200" fill="red"/>
+      <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="16" fill="#fff">
+        ERROR
+      </text>
+    </svg>`;
+  }
 }
+
 
 function renderSvg(svgString, filename) {
   const div = document.createElement('div');
