@@ -95,9 +95,9 @@ function renderSvg(svgString, filename) {
   svgContainer.appendChild(div);
 }
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+// function sleep(ms) {
+//   return new Promise(resolve => setTimeout(resolve, ms));
+// }
 
 function randomHexColor() {
   return Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');

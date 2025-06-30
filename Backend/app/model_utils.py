@@ -5,6 +5,7 @@
 # #     AutoTokenizer,
 # #     AutoModelForVision2Seq,
 # # )
+# from torchvision import transforms
 # from transformers import AutoProcessor, AutoModelForVision2Seq
 # from PIL import Image
 # import torch
@@ -12,7 +13,7 @@
 
 # model_id = "starvector/starvector-8b-im2svg"
 # # Load StarVector model and processor (once)
-# processor = AutoProcessor.from_pretrained(model_id)
+# processor = AutoProcessor.from_pretrained(model_id, use_fast=True)
 # # Correct way to load processor
 # # image_processor = SiglipImageProcessor.from_pretrained(model_id)
 # # tokenizer = AutoTokenizer.from_pretrained(model_id)
