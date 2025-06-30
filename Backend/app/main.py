@@ -23,6 +23,10 @@ async def read_index():
 graphql_app = GraphQLRouter(schema)
 app.include_router(graphql_app, prefix="/graphql")
 
+@app.get("/saved")
+async def view_saved_gallery():
+    return FileResponse("saved.html")
+
 # CORS for frontend tools
 app.add_middleware(
     CORSMiddleware,

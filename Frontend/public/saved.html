@@ -1,0 +1,53 @@
+<!-- static/saved.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Saved SVG Gallery</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Saved SVG Files</h1>
+    <div id="gallery" class="svg-container"></div>
+    <a href="/" class="download-btn">← Back to Upload</a>
+  </div>
+
+  <script>
+    async function loadSVGs() {
+      const res = await fetch('/saved-svgs');
+      const data = await res.json();
+      const gallery = document.getElementById('gallery');
+
+      if (data.files.length === 0) {
+        gallery.innerHTML = "<p>No saved SVGs found.</p>";
+        return;
+      }
+
+      data.files.forEach(url => {
+        const box = document.createElement('div');
+        box.className = "svg-box";
+
+        // Embed SVG
+        const object = document.createElement('object');
+        object.type = "image/svg+xml";
+        object.data = url;
+        object.width = "100%";
+
+        // Download link
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = url.split('/').pop();
+        link.className = 'download-btn';
+        link.textContent = 'Download';
+
+        box.appendChild(object);
+        box.appendChild(link);
+        gallery.appendChild(box);
+      });
+    }
+
+    loadSVGs();
+  </script>
+</body>
+</html>
