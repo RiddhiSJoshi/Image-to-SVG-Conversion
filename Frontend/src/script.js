@@ -1,55 +1,35 @@
-const uploadInput = document.getElementById('imageUpload');
-const statusEl = document.getElementById('status');
-const svgContainer = document.getElementById('svgContainer');
+async function uploadImage() {
+  const fileInput = document.getElementById('imageUpload');
+  const status = document.getElementById('status');
+  const spinner = document.querySelector('.spinner');
+  const svgContainer = document.getElementById('svgContainer');
 
-uploadInput.addEventListener('change', async (event) => {
-  const files = event.target.files;
-
-  if (!files.length) {
+  if (!fileInput.files.length) {
+    status.textContent = "Please select at least one image.";
     return;
   }
 
-  statusEl.innerHTML = `
-    <div class="spinner"></div>
-    <p>Converting ${files.length} file(s)...</p>
-  `;
+  // Clear previous results
+  svgContainer.innerHTML = "";
+  status.textContent = "Converting...";
+  spinner.style.display = "block";
 
-  svgContainer.innerHTML = '';
+  const file = fileInput.files[0];  // For now: handle only one image
 
-  // Simulate conversion delay
-  // await sleep(2000);
-
-  for (const file of files) {
-    const svgString = await convertImageToSvg(file);
-    renderSvg(svgString, file.name);
-  }
-
-  statusEl.textContent = 'Conversion complete!';
-});
-
-async function convertImageToSvg(file) {
   const query = `
-    mutation ConvertImage($file: Upload!) {
+    mutation($file: Upload!) {
       convertImageToSvg(file: $file) {
         svg
       }
     }
   `;
 
-  const operations = JSON.stringify({
-    query,
-    variables: {
-      file: null // placeholder for file
-    }
-  });
-
-  const map = JSON.stringify({
-    "0": ["variables.file"]
-  });
-
   const formData = new FormData();
-  formData.append("operations", operations);
-  formData.append("map", map);
+  formData.append("operations", JSON.stringify({
+    query: query,
+    variables: { file: null }
+  }));
+  formData.append("map", JSON.stringify({ "0": ["variables.file"] }));
   formData.append("0", file, file.name);
 
   try {
@@ -60,45 +40,33 @@ async function convertImageToSvg(file) {
 
     const result = await response.json();
 
-    console.log("GraphQL response:", result);
+    if (result.errors) {
+      console.error(result.errors);
+      status.textContent = "Error: " + result.errors[0].message;
+    } else {
+      const svg = result.data.convertImageToSvg.svg;
 
-    const svg = result?.data?.convertImageToSvg?.svg;
+      // Create wrapper box
+      const svgBox = document.createElement('div');
+      svgBox.classList.add('svg-box');
+      svgBox.innerHTML = svg;
 
-    if (!svg) {
-      throw new Error("No SVG returned from server.");
+      // Create download button
+      const downloadBtn = document.createElement('a');
+      downloadBtn.href = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+      downloadBtn.download = 'converted.svg';
+      downloadBtn.className = 'download-btn';
+      downloadBtn.textContent = 'Download SVG';
+
+      svgBox.appendChild(downloadBtn);
+      svgContainer.appendChild(svgBox);
+
+      status.textContent = "Conversion complete ";
     }
-
-    return svg;
   } catch (err) {
     console.error(err);
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
-      <rect width="200" height="200" fill="red"/>
-      <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="16" fill="#fff">
-        ERROR
-      </text>
-    </svg>`;
+    status.textContent = "Something went wrong during upload.";
   }
-}
 
-
-function renderSvg(svgString, filename) {
-  const div = document.createElement('div');
-  div.className = 'svg-box';
-
-  div.innerHTML = `
-    ${svgString}
-    <a class="download-btn" href="data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}" download="${filename.replace(/\.\w+$/, '.svg')}">
-      Download SVG
-    </a>
-  `;
-
-  svgContainer.appendChild(div);
-}
-
-// function sleep(ms) {
-//   return new Promise(resolve => setTimeout(resolve, ms));
-// }
-
-function randomHexColor() {
-  return Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+  spinner.style.display = "none";
 }

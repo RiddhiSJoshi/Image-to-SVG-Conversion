@@ -1,61 +1,56 @@
-# # create a backend API that uses AI (StarVector model from Hugging Face) to automatically convert raster images (like PNG or JPEG) into SVG vector graphics.
-# # from transformers import (
-# #     VisionEncoderDecoderProcessor,
-# #     SiglipImageProcessor,
-# #     AutoTokenizer,
-# #     AutoModelForVision2Seq,
-# # )
-# from torchvision import transforms
-# from transformers import AutoProcessor, AutoModelForVision2Seq
-# from PIL import Image
-# import torch
-# import io
-
-# model_id = "starvector/starvector-8b-im2svg"
-# # Load StarVector model and processor (once)
-# processor = AutoProcessor.from_pretrained(model_id, use_fast=True)
-# # Correct way to load processor
-# # image_processor = SiglipImageProcessor.from_pretrained(model_id)
-# # tokenizer = AutoTokenizer.from_pretrained(model_id)
-# # processor = VisionEncoderDecoderProcessor(
-# #     image_processor=image_processor,
-# #     tokenizer=tokenizer
-# # )
-# model = AutoModelForVision2Seq.from_pretrained(model_id)
-
-# def image_to_svg(image_bytes: bytes) -> str:
-#     try:
-#         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-#         inputs = processor(images=image, return_tensors="pt")
-
-#         with torch.no_grad():
-#             outputs = model.generate(**inputs, max_new_tokens=1024)
-
-#         svg = processor.batch_decode(outputs, skip_special_tokens=True)[0]
-#         return svg
-#     except Exception as e:
-#         raise RuntimeError(f"SVG conversion failed: {e}")
+# model_utils.py
 
 from PIL import Image
-from transformers import AutoModelForCausalLM, AutoTokenizer, AutoProcessor
-# from starvector.data.util import process_and_rasterize_svg
 import torch
+import io, os, hashlib
+from transformers import AutoModelForCausalLM
 
+# Load once at module level to avoid reloading for every call
 model_name = "starvector/starvector-8b-im2svg"
-
-starvector = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float16, trust_remote_code=True)
+starvector = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    torch_dtype=torch.float16,
+    trust_remote_code=True
+)
 processor = starvector.model.processor
 tokenizer = starvector.model.svg_transformer.tokenizer
 
 starvector.cuda()
 starvector.eval()
 
-image_pil = Image.open(r'D:\New folder\OneDrive\Pictures\Saved Pictures\beach.png')
+# Add this global dictionary
+cache = {}
 
-image = processor(image_pil, return_tensors="pt")['pixel_values'].cuda()
-if not image.shape[0] == 1:
-    image = image.squeeze(0)
-batch = {"image": image}
+def get_image_hash(image_bytes: bytes) -> str:
+    return hashlib.sha256(image_bytes).hexdigest()
 
-raw_svg = starvector.generate_im2svg(batch, max_length=4000)[0]
-# svg, raster_image = process_and_rasterize_svg(raw_svg)
+def image_to_svg(image_bytes: bytes) -> str:
+    image_hash = get_image_hash(image_bytes)
+
+    #  Check cache
+    if image_hash in cache:
+        print("Using cached SVG")
+        return cache[image_hash]
+    # Convert image bytes to PIL image
+    image_pil = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+
+    # Preprocess image
+    image = processor(image_pil, return_tensors="pt")['pixel_values'].cuda()
+    if not image.shape[0] == 1:
+        image = image.squeeze(0)
+    
+    batch = {"image": image}
+
+    # Generate SVG
+    raw_svg = starvector.generate_im2svg(batch, max_length=4000)[0]
+
+    # Save to disk
+    os.makedirs("output_svgs", exist_ok=True)
+    filename = f"output_svgs/{image_hash}.svg"
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(raw_svg)
+
+    # Save to cache
+    cache[image_hash] = raw_svg
+
+    return raw_svg
